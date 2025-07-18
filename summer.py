@@ -100,7 +100,7 @@ else:
     st.info("この日には課題が登録されていません。")
 
 # --- 📢 連絡事項（進捗状況の下に移動） ---
-if len(df) > 21:
+if len(df) > 22:
     announcement = contents[21].strip()
     if announcement:
         st.markdown("---")
