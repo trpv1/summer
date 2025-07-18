@@ -99,19 +99,20 @@ if total_tasks > 0:
 else:
     st.info("この日には課題が登録されていません。")
 
-# --- 📢 連絡事項（進捗状況の下に移動、タイトルは常に表示） ---
-st.markdown("---")
-st.subheader("📢 連絡事項")
+# --- 課題リスト表示（行インデックス 5〜19 のみ対象）---
+st.subheader("📝 課題リスト")
 
-try:
-    idx_renraku = df[df[df.columns[0]] == "連絡事項"].index[0]
-    announcement = contents[idx_renraku].strip()
-    if announcement:
-        st.markdown(announcement)
-    else:
-        st.caption("（本日の連絡事項はありません）")
-except IndexError:
-    st.caption("（データに '連絡事項' 行が存在しません）")
+task_indices = [i for i in range(5, 20) if contents[i].strip()]
+total_tasks = len(task_indices)
+completed_tasks = 0
+
+for i in task_indices:
+    title = titles[i].strip()
+    content = contents[i].strip()
+    key = f"{selected_date}_task_{i}"
+    checked = st.checkbox(f"**{title}**：{content}", key=key)
+    if checked:
+        completed_tasks += 1
 
 # --- モバイル対応：下に余白を追加 ---
 st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
