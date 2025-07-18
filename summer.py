@@ -85,7 +85,13 @@ for i in task_indices:
     title = titles[i].strip()
     content = contents[i].strip()
     key = f"{selected_date}_task_{i}"
-    checked = st.checkbox(f"**{title}**\n{content}", key=key)
+    
+    cols = st.columns([0.08, 0.92])  # 左: チェックボックス / 右: テキスト
+    with cols[0]:
+        checked = st.checkbox("", key=key)
+    with cols[1]:
+        st.markdown(f"**{title}**<br>{content}", unsafe_allow_html=True)
+
     if checked:
         completed_tasks += 1
 
