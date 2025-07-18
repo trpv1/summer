@@ -4,7 +4,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 import datetime
 
-# --- 認証設定 ---
+# --- Google認証 ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
 if "gcp_service_account" in st.secrets:
@@ -26,21 +26,20 @@ except Exception as e:
     st.error(f"スプレッドシートの読み込みに失敗しました: {e}")
     st.stop()
 
-# --- DataFrame化と整形 ---
+# --- DataFrameに変換 ---
 df = pd.DataFrame(data)
 df.columns = df.iloc[0]
 df = df[1:].reset_index(drop=True)
 
-# --- 今日の文字列と日付選択 ---
-today_str = datetime.date.today().strftime("%-m/%-d")  # 例: '7/18'
+# --- 日付選択（今日をデフォルト） ---
+today_str = datetime.date.today().strftime("%-m/%-d")
 available_dates = [col for col in df.columns if col != df.columns[0]]
 
 default_idx = available_dates.index(today_str) if today_str in available_dates else 0
 selected_date = st.selectbox("📆 表示する日付を選んでください", available_dates, index=default_idx)
 
-# --- データ抽出 ---
-titles = df[df.columns[0]]         # 左端列
-contents = df[selected_date]       # 選択された日付の列
+titles = df[df.columns[0]]
+contents = df[selected_date]
 
 # --- スローガン表示 ---
 st.markdown(
@@ -53,21 +52,33 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- タイトル表示 ---
+# --- タイトル表示（3R3ファミリー + 本日表示） ---
 is_today = (selected_date == today_str)
 title_suffix = "（本日）" if is_today else ""
+
 st.markdown(
-    f"<h2 style='text-align:center;'>📅 {selected_date}{title_suffix} の予定</h2>",
+    f"""
+    <div style='text-align: center; font-size: 22px; font-weight: bold;'>
+        3R3ファミリー<br>📅 {selected_date}{title_suffix} の予定
+    </div>
+    """,
     unsafe_allow_html=True
 )
 
-# --- 授業内容表示（上5行） ---
+# --- 授業内容（上5行） ---
 st.subheader("🧑‍🏫 授業内容")
 for i in range(min(5, len(df))):
     if contents[i].strip():
         st.markdown(f"- **{titles[i]}**：{contents[i]}", unsafe_allow_html=True)
 
-# --- 課題リスト表示と進捗管理 ---
+# --- 連絡事項（22行目） ---
+if len(df) > 21:
+    announcement = contents[21].strip()
+    if announcement:
+        st.subheader("📢 連絡事項")
+        st.markdown(f"{announcement}")
+
+# --- 課題リスト（5行目以降） ---
 st.subheader("📝 課題リスト")
 
 task_indices = []
@@ -86,7 +97,7 @@ for i in task_indices:
     if checked:
         completed_tasks += 1
 
-# --- 全体進捗バー表示 ---
+# --- 全体進捗表示 ---
 if total_tasks > 0:
     progress = completed_tasks / total_tasks
     st.markdown("---")
@@ -96,5 +107,5 @@ if total_tasks > 0:
 else:
     st.info("この日には課題が登録されていません。")
 
-# --- スマホ向け余白 ---
+# --- スマホ余白調整 ---
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
