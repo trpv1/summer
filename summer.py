@@ -99,20 +99,19 @@ if total_tasks > 0:
 else:
     st.info("この日には課題が登録されていません。")
 
-# --- 📢 連絡事項（進捗状況の下） ---
+# --- 📢 連絡事項（進捗状況の下に移動、タイトルは常に表示） ---
 st.markdown("---")
 st.subheader("📢 連絡事項")
 
-# 22行目 = index 21 に内容がある場合だけ表示
-if len(df) > 21:
-    announcement = contents[21].strip()
+try:
+    idx_renraku = df[df[df.columns[0]] == "連絡事項"].index[0]
+    announcement = contents[idx_renraku].strip()
     if announcement:
         st.markdown(announcement)
     else:
         st.caption("（本日の連絡事項はありません）")
-else:
-    st.caption("（データに連絡事項欄が見つかりません）")
-
+except IndexError:
+    st.caption("（データに '連絡事項' 行が存在しません）")
 
 # --- モバイル対応：下に余白を追加 ---
 st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
