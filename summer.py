@@ -4,7 +4,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 import datetime
 
-# --- 認証（Streamlit Cloudでは secrets を使用） ---
+# --- 認証（Streamlit Cloud Secrets 対応） ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
 if "gcp_service_account" in st.secrets:
@@ -12,51 +12,49 @@ if "gcp_service_account" in st.secrets:
         st.secrets["gcp_service_account"], scope
     )
 else:
-    st.error("Google Sheets の認証情報が見つかりません。secrets に gcp_service_account を設定してください。")
+    st.error("認証情報が見つかりません。Streamlit Secrets を設定してください。")
     st.stop()
 
 client = gspread.authorize(creds)
 
-# --- スプレッドシート「ScoreBoard」の「予定表」シートを取得 ---
+# --- スプレッドシートとシート取得 ---
 try:
     spreadsheet = client.open("ScoreBoard")
     sheet = spreadsheet.worksheet("予定表")
     data = sheet.get_all_values()
 except Exception as e:
-    st.error(f"シートの読み込みに失敗しました: {e}")
+    st.error(f"シート読み込みに失敗しました: {e}")
     st.stop()
 
-# --- DataFrameに変換 ---
+# --- データ整形 ---
 df = pd.DataFrame(data)
 df.columns = df.iloc[0]  # 1行目を列名に
-df = df[1:]              # データ本体
-df = df.reset_index(drop=True)
+df = df[1:].reset_index(drop=True)
 
-# --- 今日の日付を '7/23' のような形式で取得 ---
-today_str = datetime.date.today().strftime("%-m/%-d")  # Windowsなら "%#m/%#d"
-
+# --- 今日の日付（列名と合わせる形式） ---
+today_str = datetime.date.today().strftime("%-m/%-d")  # 例: '7/23'
 if today_str not in df.columns:
-    st.error(f"本日 {today_str} の予定は見つかりません。")
+    st.error(f"{today_str} のデータが見つかりません。")
     st.stop()
 
-# --- 項目名と今日の列を取得 ---
-items = df[df.columns[0]]       # 左側の「項目名」
-today_col = df[today_str]       # 今日の列
+# --- データ抽出 ---
+titles = df[df.columns[0]]       # A列：タイトル
+contents = df[today_str]         # 今日の日付の列
 
 # --- UI表示 ---
-st.title(f"📅 {today_str} の予定")
+st.markdown(f"<h2 style='text-align:center;'>📅 {today_str} の予定</h2>", unsafe_allow_html=True)
 
-# --- 授業予定の表示（上から5行程度） ---
+# --- 授業内容（先頭 5 行） ---
 st.subheader("🧑‍🏫 授業内容")
-for i, (label, val) in enumerate(zip(items, today_col)):
-    if i <= 4 and val.strip() != "":
-        st.markdown(f"- **{label}**：{val}")
+for i in range(min(5, len(df))):
+    if contents[i].strip():
+        st.markdown(f"- **{titles[i]}**：{contents[i]}", unsafe_allow_html=True)
 
-# --- 宿題一覧の表示（チェックボックス付き） ---
-st.subheader("📚 宿題リスト")
-for i, (label, val) in enumerate(zip(items, today_col)):
-    if i > 4 and val.strip() != "":
-        st.checkbox(f"{label}", key=f"hw_{i}")
+# --- 課題リスト（6行目以降） ---
+st.subheader("📝 課題リスト")
+for i in range(5, len(df)):
+    if contents[i].strip():
+        st.checkbox(f"**{titles[i]}**：{contents[i]}", key=f"task_{i}")
 
-# --- フッター ---
-st.caption("提出状況の保存機能は未実装です。今後追加予定。")
+# --- スマホ向けスペース調整 ---
+st.markdown("<div style='margin-bottom:100px;'></div>", unsafe_allow_html=True)
