@@ -72,7 +72,7 @@ st.markdown(
 st.subheader("🧑‍🏫 授業内容")
 for i in range(min(5, len(df))):
     if contents[i].strip():
-        st.markdown(f"- **{titles[i]}**：{contents[i]}", unsafe_allow_html=True)
+        st.markdown(f"**{titles[i]}**<br>{contents[i]}", unsafe_allow_html=True)
 
 # --- 課題リスト表示（行インデックス 5〜19 のみ対象）---
 st.subheader("📝 課題リスト")
@@ -85,7 +85,7 @@ for i in task_indices:
     title = titles[i].strip()
     content = contents[i].strip()
     key = f"{selected_date}_task_{i}"
-    checked = st.checkbox(f"**{title}**：{content}", key=key)
+    checked = st.checkbox(f"**{title}**\n{content}", key=key)
     if checked:
         completed_tasks += 1
 
