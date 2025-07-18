@@ -4,24 +4,30 @@ from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 import datetime
 
-# --- Google認証 ---
+# --- Google認証スコープ ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
+# --- Google Sheets認証処理 ---
 if "gcp_service_account" in st.secrets:
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
         st.secrets["gcp_service_account"], scope
     )
 else:
-    st.error("認証情報が設定されていません。Streamlit Secrets に gcp_service_account を登録してください。")
+    st.error("認証情報がありません。Streamlit Secrets に gcp_service_account を設定してください。")
     st.stop()
 
 client = gspread.authorize(creds)
 
-# --- スプレッドシート読み込み ---
-try:
+# --- キャッシュ付き読み込み関数（5分） ---
+@st.cache_data(ttl=300)
+def load_sheet_data():
     spreadsheet = client.open("ScoreBoard")
     sheet = spreadsheet.worksheet("予定表")
-    data = sheet.get_all_values()
+    return sheet.get_all_values()
+
+# --- データ取得 ---
+try:
+    data = load_sheet_data()
 except Exception as e:
     st.error(f"スプレッドシートの読み込みに失敗しました: {e}")
     st.stop()
@@ -31,34 +37,31 @@ df = pd.DataFrame(data)
 df.columns = df.iloc[0]
 df = df[1:].reset_index(drop=True)
 
-# --- 日付選択（今日をデフォルト） ---
+# --- 今日の設定と日付選択 ---
 today_str = datetime.date.today().strftime("%-m/%-d")
 available_dates = [col for col in df.columns if col != df.columns[0]]
-
 default_idx = available_dates.index(today_str) if today_str in available_dates else 0
 selected_date = st.selectbox("📆 表示する日付を選んでください", available_dates, index=default_idx)
 
 titles = df[df.columns[0]]
 contents = df[selected_date]
 
-# --- スローガン表示 ---
+# --- クラススローガン表示（軽量化版） ---
 st.markdown(
     """
-    <div style='text-align: center; font-size: 20px; font-weight: bold; margin-top: 10px; margin-bottom: 30px;'>
-        🎯 あとで振り返って<br>
-        つらかったといえる夏にしよう
+    <div style='text-align:center; font-size:18px; font-weight:600; margin-top:10px; margin-bottom:20px;'>
+        🎯 あとで振り返って<br>つらかったといえる夏にしよう
     </div>
     """,
     unsafe_allow_html=True
 )
 
-# --- タイトル表示（3R3ファミリー + 本日表示） ---
+# --- タイトル表示（3R3ファミリー + 本日） ---
 is_today = (selected_date == today_str)
 title_suffix = "（本日）" if is_today else ""
-
 st.markdown(
     f"""
-    <div style='text-align: center; font-size: 22px; font-weight: bold;'>
+    <div style='text-align:center; font-size:20px; font-weight:600;'>
         3R3ファミリー<br>📅 {selected_date}{title_suffix} の予定
     </div>
     """,
@@ -76,16 +79,12 @@ if len(df) > 21:
     announcement = contents[21].strip()
     if announcement:
         st.subheader("📢 連絡事項")
-        st.markdown(f"{announcement}")
+        st.markdown(announcement)
 
-# --- 課題リスト（5行目以降） ---
+# --- 課題リスト表示 ---
 st.subheader("📝 課題リスト")
 
-task_indices = []
-for i in range(5, len(df)):
-    if contents[i].strip():
-        task_indices.append(i)
-
+task_indices = [i for i in range(5, len(df)) if contents[i].strip()]
 total_tasks = len(task_indices)
 completed_tasks = 0
 
@@ -107,5 +106,5 @@ if total_tasks > 0:
 else:
     st.info("この日には課題が登録されていません。")
 
-# --- スマホ余白調整 ---
-st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
+# --- モバイル対応：下に余白を追加 ---
+st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
