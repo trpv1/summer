@@ -99,14 +99,20 @@ if total_tasks > 0:
 else:
     st.info("この日には課題が登録されていません。")
 
-# --- 📢 連絡事項（進捗状況の下に移動） ---
+# --- 📢 連絡事項（進捗状況の下） ---
+st.markdown("---")
 st.subheader("📢 連絡事項")
-if len(df) > 22:
+
+# 22行目 = index 21 に内容がある場合だけ表示
+if len(df) > 21:
     announcement = contents[21].strip()
     if announcement:
-        st.markdown("---")
-        st.subheader("📢 連絡事項")
         st.markdown(announcement)
+    else:
+        st.caption("（本日の連絡事項はありません）")
+else:
+    st.caption("（データに連絡事項欄が見つかりません）")
+
 
 # --- モバイル対応：下に余白を追加 ---
 st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
