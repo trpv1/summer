@@ -74,13 +74,6 @@ for i in range(min(5, len(df))):
     if contents[i].strip():
         st.markdown(f"- **{titles[i]}**：{contents[i]}", unsafe_allow_html=True)
 
-# --- 連絡事項（22行目） ---
-if len(df) > 21:
-    announcement = contents[21].strip()
-    if announcement:
-        st.subheader("📢 連絡事項")
-        st.markdown(announcement)
-
 # --- 課題リスト表示 ---
 st.subheader("📝 課題リスト")
 
@@ -105,6 +98,14 @@ if total_tasks > 0:
     st.caption(f"完了：{completed_tasks} / {total_tasks} 件")
 else:
     st.info("この日には課題が登録されていません。")
+
+# --- 📢 連絡事項（進捗状況の下に移動） ---
+if len(df) > 21:
+    announcement = contents[21].strip()
+    if announcement:
+        st.markdown("---")
+        st.subheader("📢 連絡事項")
+        st.markdown(announcement)
 
 # --- モバイル対応：下に余白を追加 ---
 st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
