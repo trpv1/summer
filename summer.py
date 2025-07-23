@@ -92,27 +92,27 @@ for i in range(len(df)):
 
     # 状態判定とスタイル設定
     if now > end:
-        style = "opacity: 0.6;"  # 終了済み
+        opacity = "0.6"
         symbol = "✔️"
         border = ""
         bg = "transparent"
     elif start <= now <= end:
-        style = "font-weight: bold; background-color: #FFD6D6; padding: 6px; border-radius: 6px;"  # 現在
+        opacity = "1.0"
         symbol = "➡️"
         border = "border: 2px solid orange;"
         bg = "#FFD6D6"
     else:
-        style = "opacity: 1.0;"
+        opacity = "1.0"
         symbol = "○"
         border = ""
         bg = "transparent"
 
     st.markdown(
         f"""
-        <div style="margin-bottom: 10px; padding: 6px; {border}; background-color: {bg};">
+        <div style="margin-bottom: 10px; padding: 6px; {border}; background-color: {bg}; opacity: {opacity};">
             <span style="font-size: 18px; font-weight: bold;">{symbol} <strong>{title}</strong></span><br>
-            <span style="margin-left: 24px; {style}">{time_range}</span><br>
-            <div style="margin-left: 24px; {style}">{content}</div>
+            <span style="margin-left: 24px;">{time_range}</span><br>
+            <div style="margin-left: 24px;">{content}</div>
         </div>
         """,
         unsafe_allow_html=True
