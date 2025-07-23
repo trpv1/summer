@@ -1,87 +1,116 @@
-import streamlit as st
-import pandas as pd
-import gspread
-from google.oauth2.service_account import Credentials
 from datetime import datetime
-import pytz
+import streamlit as st
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import pandas as pd
 
-# 認証情報とスプレッドシート設定
-scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-credentials = Credentials.from_service_account_file(
-    "credentials.json",
-    scopes=scopes
-)
-gc = gspread.authorize(credentials)
-SPREADSHEET_KEY = "1Pv2yk28ErPUWlMevBL1F-X7y12UcfazkHZ1MyRTfB64"
-worksheet = gc.open_by_key(SPREADSHEET_KEY).sheet1
-data = worksheet.get_all_values()
-df = pd.DataFrame(data)
+# --- Google認証スコープ ---
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
-# 日付取得（JST）
-jst = pytz.timezone('Asia/Tokyo')
-today = datetime.now(jst).strftime("%-m/%-d")
-today_str = datetime.now(jst).strftime("%-m月%-d日")
-
-# ヘッダー処理（1列目から本日列のインデックス取得）
-date_row = df.iloc[0]
-if today in date_row.values:
-    date_index = date_row.tolist().index(today)
+# --- Google Sheets認証処理 ---
+if "gcp_service_account" in st.secrets:
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        st.secrets["gcp_service_account"], scope
+    )
 else:
-    st.error("本日の列が見つかりません")
+    st.error("認証情報がありません。Streamlit Secrets に gcp_service_account を設定してください。")
     st.stop()
 
-# スローガン表示
-st.title("☀️ あとで振り返ってつらかったといえる夏にしよう")
+client = gspread.authorize(creds)
 
-# 本日の予定
-if date_row[date_index] == today:
-    st.subheader(f"📅 7/{today.split('/')[-1]}（本日）の予定")
-else:
-    st.subheader(f"📅 {today} の予定")
+@st.cache_data(ttl=300)
+def load_sheet_data():
+    sheet = client.open("ScoreBoard").worksheet("予定表")
+    return sheet.get_all_values()
 
-# 課題リストの抽出（2〜19行目まで）
-titles = df.iloc[1:19, 0].reset_index(drop=True)
-times  = df.iloc[1:19, 1].reset_index(drop=True)
-flags  = df.iloc[1:19, date_index].reset_index(drop=True)
+data = load_sheet_data()
+df = pd.DataFrame(data)
+df.columns = df.iloc[0]
+df = df[1:].reset_index(drop=True)
 
-# 現在時刻に基づいて進行中をハイライト
-now = datetime.now(jst)
-progress_index = -1
-for i, t in enumerate(times):
+# --- 日付選択 ---
+today_str = datetime.today().strftime("%-m/%-d")
+available_dates = [col for col in df.columns if col not in ["日にち", "時間"]]
+default_idx = available_dates.index(today_str) if today_str in available_dates else 0
+selected_date = st.selectbox("📆 表示する日付を選んでください", available_dates, index=default_idx)
+
+titles = df["日にち"]
+times = df["時間"]
+contents = df[selected_date]
+
+# --- クラススローガン ---
+st.markdown(
+    "<div style='text-align:center; font-size:18px; font-weight:600;'>🎯 あとで振り返って<br>つらかったといえる夏にしよう</div>",
+    unsafe_allow_html=True
+)
+
+# --- タイトル ---
+is_today = (selected_date == today_str)
+st.markdown(
+    f"<div style='text-align:center; font-size:20px; font-weight:600;'>3R3ファミリー<br>📅 {selected_date}{'（本日）' if is_today else ''} の予定</div>",
+    unsafe_allow_html=True
+)
+
+# --- 進行状況バー ---
+st.subheader("🛤️ 進行状況バー（時間別）")
+now = datetime.now().time()
+for i in range(len(df)):
+    title = titles[i].strip()
+    time_range = times[i].strip()
+    if not time_range:
+        continue
     try:
-        start_str, end_str = t.replace("〜", "-").split("-")
-        start_time = datetime.strptime(start_str, "%H:%M").replace(
-            year=now.year, month=now.month, day=now.day, tzinfo=jst)
-        end_time = datetime.strptime(end_str, "%H:%M").replace(
-            year=now.year, month=now.month, day=now.day, tzinfo=jst)
-        if start_time <= now <= end_time:
-            progress_index = i
-            break
+        start_str, end_str = time_range.replace('〜', '-').split('-')
+        start = datetime.strptime(start_str.strip(), "%H:%M").time()
+        end = datetime.strptime(end_str.strip(), "%H:%M").time()
     except:
         continue
 
-# 課題リスト表示
-st.markdown("## ✅ 課題リスト")
-for i in range(len(titles)):
-    title = f"☑️ **{titles[i]}**"
-    content = flags[i]
-    if i == progress_index:
-        st.success(f"{title}\n{content}")
+    if now > end:
+        symbol = "✔️"
+    elif start <= now <= end:
+        symbol = "➡️"
     else:
-        st.markdown(f"{title}\n{content}")
+        symbol = "○"
 
-# 進捗状況バー
-completed = sum(1 for c in flags if c.strip())
-total = len(flags)
-ratio = completed / total if total else 0
-st.markdown("### 📈 課題の進捗状況")
-st.progress(ratio)
+    st.markdown(f"{symbol} **{title}**<br><span style='margin-left:24px;'>{time_range}</span>", unsafe_allow_html=True)
 
-# 連絡事項表示（21行目以降）
-if len(df) > 21:
-    notes = df.iloc[21:, date_index].dropna().tolist()
-    if any(notes):
-        st.subheader("📢 連絡事項")
-        for note in notes:
-            if note.strip():
-                st.markdown(f"- {note}")
+# --- 授業内容（上5行） ---
+st.subheader("🧑‍🏫 授業内容")
+for i in range(5):
+    if contents[i].strip():
+        st.markdown(f"**{titles[i]}**\n{contents[i]}", unsafe_allow_html=True)
+
+# --- 課題リスト（6〜20行目） ---
+st.subheader("📝 課題リスト")
+task_indices = [i for i in range(5, 20) if contents[i].strip()]
+total = len(task_indices)
+done = 0
+
+for i in task_indices:
+    key = f"{selected_date}_task_{i}"
+    checked = st.checkbox(f"**{titles[i]}**\n{contents[i]}", key=key)
+    if checked:
+        done += 1
+
+if total > 0:
+    st.markdown("---")
+    st.subheader("📈 全体の進捗状況")
+    st.progress(done / total)
+    st.caption(f"完了：{done} / {total} 件")
+
+# --- 連絡事項 ---
+st.markdown("---")
+st.subheader("📢 連絡事項")
+try:
+    idx = df[df["日にち"] == "連絡事項"].index[0]
+    ann = contents[idx].strip()
+    if ann:
+        st.markdown(ann)
+    else:
+        st.caption("（本日の連絡事項はありません）")
+except IndexError:
+    st.caption("（連絡事項の行が見つかりません）")
+
+# モバイル対応の余白
+st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
