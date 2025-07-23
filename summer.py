@@ -60,7 +60,8 @@ def is_time_in_range(start, end, now):
 
 # --- 進行状況バー ---
 st.subheader("🛤️ 進行状況バー（時間別）")
-now = datetime.now().time()
+JST = timezone(timedelta(hours=9))  # 日本時間
+now = datetime.now(JST).time()
 for i in range(len(df)):
     title = titles[i].strip()
     time_range = times[i].strip()
