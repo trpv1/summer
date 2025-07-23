@@ -1,9 +1,8 @@
+from datetime import datetime, timedelta
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
-from datetime import datetime
-import os
 
 # --- Google認証スコープ ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -24,18 +23,14 @@ def load_sheet_data():
     sheet = client.open("ScoreBoard").worksheet("予定表")
     return sheet.get_all_values()
 
-# --- データ読み込み ---
 data = load_sheet_data()
 df = pd.DataFrame(data)
 df.columns = df.iloc[0]
 df = df[1:].reset_index(drop=True)
 
-# --- 日付の形式をOS依存で調整 ---
-now_dt = datetime.now()
-if os.name == 'nt':
-    today_str = now_dt.strftime("%#m/%#d")
-else:
-    today_str = now_dt.strftime("%-m/%-d")
+# --- JSTの現在時刻取得 ---
+now_dt = datetime.utcnow() + timedelta(hours=9)  # JST = UTC+9
+today_str = now_dt.strftime("%-m/%-d") if not st.runtime.scriptrunner.is_windows() else now_dt.strftime("%#m/%#d")
 
 available_dates = [col for col in df.columns if col not in ["日にち", "時間"]]
 default_idx = available_dates.index(today_str) if today_str in available_dates else 0
@@ -60,7 +55,7 @@ st.markdown(
 
 # --- 進行状況バー ---
 st.subheader("🛤️ 進行状況バー（時間別）")
-now = datetime.now().time()
+now = now_dt.time()
 
 for i in range(len(df)):
     title = titles[i].strip()
@@ -68,7 +63,6 @@ for i in range(len(df)):
     content = contents[i].strip()
     if not time_range:
         continue
-
     try:
         start_str, end_str = time_range.replace('〜', '-').split('-')
         start = datetime.strptime(start_str.strip(), "%H:%M").time()
@@ -76,25 +70,27 @@ for i in range(len(df)):
     except:
         continue
 
-    # ステータス分類
+    # 状態判定とスタイル設定
     if now > end:
-        style = "color: gray; opacity: 0.6;"  # 終了したもの
+        style = "color: gray; opacity: 0.6;"  # 終了済み
+        style_title = "color: gray; opacity: 0.6;"
         symbol = "✔️"
         border = ""
     elif start <= now <= end:
         style = "font-weight: bold; background-color: #ffeaa7; padding: 6px; border-radius: 6px;"
+        style_title = "font-weight: bold; color: #2d3436;"
         symbol = "➡️"
         border = "border: 2px solid orange;"
     else:
         style = "opacity: 1.0;"
+        style_title = "color: black;"
         symbol = "○"
         border = ""
 
-    # 表示
     st.markdown(
         f"""
         <div style="margin-bottom: 10px; padding: 6px; {border}">
-            <span style="font-size: 18px;">{symbol} <strong>{title}</strong></span><br>
+            <span style="font-size: 18px; {style_title}">{symbol} <strong>{title}</strong></span><br>
             <span style="margin-left: 24px; {style}">{time_range}</span><br>
             <div style="margin-left: 24px; {style}">{content}</div>
         </div>
@@ -115,5 +111,5 @@ try:
 except IndexError:
     st.caption("（連絡事項の行が見つかりません）")
 
-# --- モバイル対応の余白 ---
+# モバイル対応の余白
 st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
