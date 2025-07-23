@@ -3,6 +3,7 @@ import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
+import os
 
 # --- Google認証スコープ ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -30,7 +31,10 @@ df = df[1:].reset_index(drop=True)
 
 # --- JSTの現在時刻取得 ---
 now_dt = datetime.utcnow() + timedelta(hours=9)  # JST = UTC+9
-today_str = now_dt.strftime("%-m/%-d") if not st.runtime.scriptrunner.is_windows() else now_dt.strftime("%#m/%#d")
+if os.name == 'nt':  # Windows
+    today_str = now_dt.strftime("%#m/%#d")
+else:
+    today_str = now_dt.strftime("%-m/%-d")
 
 available_dates = [col for col in df.columns if col not in ["日にち", "時間"]]
 default_idx = available_dates.index(today_str) if today_str in available_dates else 0
