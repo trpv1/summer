@@ -44,6 +44,18 @@ titles = df["日にち"]
 times = df["時間"]
 contents = df[selected_date]
 
+# --- ページ背景を白に固定 ---
+st.markdown(
+    """
+    <style>
+        body, .stApp {
+            background-color: white !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # --- クラススローガン ---
 st.markdown(
     "<div style='text-align:center; font-size:18px; font-weight:600;'>🎯 あとで振り返って<br>つらかったといえる夏にしよう</div>",
@@ -57,7 +69,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- 進行状況バー ---
+# --- 進行状況バー（時間帯ごとに表示） ---
 st.subheader("🛤️ 進行状況バー（時間別）")
 now = now_dt.time()
 
@@ -81,7 +93,7 @@ for i in range(len(df)):
         symbol = "✔️"
         border = ""
     elif start <= now <= end:
-        style = "font-weight: bold; background-color: #ffeaa7; padding: 6px; border-radius: 6px;"
+        style = "font-weight: bold; background-color: #FFD6D6; padding: 6px; border-radius: 6px;"  # 薄ピンク
         style_title = "font-weight: bold; color: #2d3436;"
         symbol = "➡️"
         border = "border: 2px solid orange;"
