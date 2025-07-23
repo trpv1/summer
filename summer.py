@@ -49,8 +49,32 @@ contents = df[selected_date]
 # --- 背景白＆文字黒 固定 ---
 st.markdown("""
 <style>
-    body, .stApp { background-color: white !important; color: black !important; }
-    * { color: black !important; }
+    body, .stApp {
+        background-color: white !important;
+        color: black !important;
+    }
+
+    /* ▼ selectbox 本体（表示エリア） */
+    .stSelectbox > div[data-baseweb="select"] {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    /* ▼ プレースホルダー / 入力文字 */
+    .stSelectbox input {
+        color: #000000 !important;
+    }
+    /* ▼ ドロップダウンのリスト全体 */
+    .stSelectbox div[role="listbox"] {
+        background-color: #ffffff !important;
+    }
+    /* ▼ 各オプションの文字色 */
+    .stSelectbox div[role="option"] {
+        color: #000000 !important;
+    }
+    /* ▼ 矢印アイコンも黒に */
+    .stSelectbox svg {
+        fill: #000000 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
