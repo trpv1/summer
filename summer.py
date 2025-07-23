@@ -75,29 +75,6 @@ for i in range(len(df)):
 
     st.markdown(f"{symbol} **{title}**<br><span style='margin-left:24px;'>{time_range}</span>", unsafe_allow_html=True)
 
-# --- 授業内容（上5行） ---
-st.subheader("🧑‍🏫 授業内容")
-for i in range(5):
-    if contents[i].strip():
-        st.markdown(f"**{titles[i]}**\n{contents[i]}", unsafe_allow_html=True)
-
-# --- 課題リスト（6〜20行目） ---
-st.subheader("📝 課題リスト")
-task_indices = [i for i in range(5, 20) if contents[i].strip()]
-total = len(task_indices)
-done = 0
-
-for i in task_indices:
-    key = f"{selected_date}_task_{i}"
-    checked = st.checkbox(f"**{titles[i]}**\n{contents[i]}", key=key)
-    if checked:
-        done += 1
-
-if total > 0:
-    st.markdown("---")
-    st.subheader("📈 全体の進捗状況")
-    st.progress(done / total)
-    st.caption(f"完了：{done} / {total} 件")
 
 # --- 連絡事項 ---
 st.markdown("---")
