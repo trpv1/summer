@@ -44,12 +44,19 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- タイトル ---
+# --- タイトル表示 ---
 is_today = (selected_date == today_str)
 st.markdown(
     f"<div style='text-align:center; font-size:20px; font-weight:600;'>3R3ファミリー<br>📅 {selected_date}{'（本日）' if is_today else ''} の予定</div>",
     unsafe_allow_html=True
 )
+
+# --- 時間帯が now を含むかどうか（日またぎ対応） ---
+def is_time_in_range(start, end, now):
+    if start < end:
+        return start <= now <= end
+    else:
+        return now >= start or now <= end
 
 # --- 進行状況バー ---
 st.subheader("🛤️ 進行状況バー（時間別）")
@@ -66,15 +73,14 @@ for i in range(len(df)):
     except:
         continue
 
-    if now > end:
-        symbol = "✔️"
-    elif start <= now <= end:
+    if is_time_in_range(start, end, now):
         symbol = "➡️"
+    elif (start < end and now > end) or (start > end and now > start and now > end):
+        symbol = "✔️"
     else:
         symbol = "○"
 
     st.markdown(f"{symbol} **{title}**<br><span style='margin-left:24px;'>{time_range}</span>", unsafe_allow_html=True)
-
 
 # --- 連絡事項 ---
 st.markdown("---")
@@ -89,5 +95,5 @@ try:
 except IndexError:
     st.caption("（連絡事項の行が見つかりません）")
 
-# モバイル対応の余白
+# --- モバイル対応スペース ---
 st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
