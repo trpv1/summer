@@ -74,7 +74,7 @@ st.markdown(
 )
 
 # --- 進行状況バー ---
-st.subheader("🛤️ 進行状況バー（時間別）")
+st.subheader("🛤️ 進行状況バー（目安）")
 now = now_dt.time()
 
 for i in range(len(df)):
