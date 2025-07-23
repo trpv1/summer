@@ -44,12 +44,16 @@ titles = df["日にち"]
 times = df["時間"]
 contents = df[selected_date]
 
-# --- ページ背景を白に固定 ---
+# --- ページ全体のスタイル（背景白、文字黒） ---
 st.markdown(
     """
     <style>
         body, .stApp {
             background-color: white !important;
+            color: black !important;
+        }
+        * {
+            color: black !important;
         }
     </style>
     """,
@@ -69,7 +73,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- 進行状況バー（時間帯ごとに表示） ---
+# --- 進行状況バー ---
 st.subheader("🛤️ 進行状況バー（時間別）")
 now = now_dt.time()
 
@@ -88,25 +92,25 @@ for i in range(len(df)):
 
     # 状態判定とスタイル設定
     if now > end:
-        style = "color: gray; opacity: 0.6;"  # 終了済み
-        style_title = "color: gray; opacity: 0.6;"
+        style = "opacity: 0.6;"  # 終了済み
         symbol = "✔️"
         border = ""
+        bg = "transparent"
     elif start <= now <= end:
-        style = "font-weight: bold; background-color: #FFD6D6; padding: 6px; border-radius: 6px;"  # 薄ピンク
-        style_title = "font-weight: bold; color: #2d3436;"
+        style = "font-weight: bold; background-color: #FFD6D6; padding: 6px; border-radius: 6px;"  # 現在
         symbol = "➡️"
         border = "border: 2px solid orange;"
+        bg = "#FFD6D6"
     else:
         style = "opacity: 1.0;"
-        style_title = "color: black;"
         symbol = "○"
         border = ""
+        bg = "transparent"
 
     st.markdown(
         f"""
-        <div style="margin-bottom: 10px; padding: 6px; {border}">
-            <span style="font-size: 18px; {style_title}">{symbol} <strong>{title}</strong></span><br>
+        <div style="margin-bottom: 10px; padding: 6px; {border}; background-color: {bg};">
+            <span style="font-size: 18px; font-weight: bold;">{symbol} <strong>{title}</strong></span><br>
             <span style="margin-left: 24px; {style}">{time_range}</span><br>
             <div style="margin-left: 24px; {style}">{content}</div>
         </div>
@@ -121,7 +125,7 @@ try:
     idx = df[df["日にち"] == "連絡事項"].index[0]
     ann = contents[idx].strip()
     if ann:
-        st.markdown(ann)
+        st.markdown(f"<div style='color: black;'>{ann}</div>", unsafe_allow_html=True)
     else:
         st.caption("（本日の連絡事項はありません）")
 except IndexError:
