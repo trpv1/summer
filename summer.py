@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -28,8 +28,11 @@ df = pd.DataFrame(data)
 df.columns = df.iloc[0]
 df = df[1:].reset_index(drop=True)
 
-# --- 日付選択 ---
-today_str = datetime.today().strftime("%-m/%-d")
+# --- 日本時間を取得 ---
+JST = timezone(timedelta(hours=9))
+now_dt = datetime.now(JST)
+today_str = now_dt.strftime("%-m/%-d") if not st.runtime.scriptrunner.is_windows() else now_dt.strftime("%#m/%#d")  # OS依存対応
+
 available_dates = [col for col in df.columns if col not in ["日にち", "時間"]]
 default_idx = available_dates.index(today_str) if today_str in available_dates else 0
 selected_date = st.selectbox("📆 表示する日付を選んでください", available_dates, index=default_idx)
@@ -44,24 +47,16 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- タイトル表示 ---
+# --- タイトル ---
 is_today = (selected_date == today_str)
 st.markdown(
     f"<div style='text-align:center; font-size:20px; font-weight:600;'>3R3ファミリー<br>📅 {selected_date}{'（本日）' if is_today else ''} の予定</div>",
     unsafe_allow_html=True
 )
 
-# --- 時間帯が now を含むかどうか（日またぎ対応） ---
-def is_time_in_range(start, end, now):
-    if start < end:
-        return start <= now <= end
-    else:
-        return now >= start or now <= end
-
 # --- 進行状況バー ---
 st.subheader("🛤️ 進行状況バー（時間別）")
-JST = timezone(timedelta(hours=9))  # 日本時間
-now = datetime.now(JST).time()
+now = now_dt.time()
 for i in range(len(df)):
     title = titles[i].strip()
     time_range = times[i].strip()
@@ -74,10 +69,10 @@ for i in range(len(df)):
     except:
         continue
 
-    if is_time_in_range(start, end, now):
-        symbol = "➡️"
-    elif (start < end and now > end) or (start > end and now > start and now > end):
+    if now > end:
         symbol = "✔️"
+    elif start <= now <= end:
+        symbol = "➡️"
     else:
         symbol = "○"
 
@@ -96,5 +91,5 @@ try:
 except IndexError:
     st.caption("（連絡事項の行が見つかりません）")
 
-# --- モバイル対応スペース ---
+# --- モバイル対応の余白 ---
 st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
