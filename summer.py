@@ -92,7 +92,7 @@ for i in range(len(df)):
 
     # 状態判定とスタイル設定
     if now > end:
-        opacity = "0.6"
+        opacity = "0.4"
         symbol = "✔️"
         border = ""
         bg = "transparent"
