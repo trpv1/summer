@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta, timezone
-import os
+from datetime import datetime
 import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -19,28 +18,20 @@ else:
 
 client = gspread.authorize(creds)
 
-# --- スプレッドシートからデータ読み込み（キャッシュ有効） ---
 @st.cache_data(ttl=300)
 def load_sheet_data():
     sheet = client.open("ScoreBoard").worksheet("予定表")
     return sheet.get_all_values()
 
+# --- データ読み込みと整形 ---
 data = load_sheet_data()
 df = pd.DataFrame(data)
 df.columns = df.iloc[0]
 df = df[1:].reset_index(drop=True)
 
-# --- 日本時間で現在時刻を取得 ---
-JST = timezone(timedelta(hours=9))
-now_dt = datetime.now(JST)
-
-# --- OSに応じた今日の日付文字列（例: 7/18）---
-if os.name == "nt":  # Windows
-    today_str = now_dt.strftime("%#m/%#d")
-else:  # macOS, Linuxなど
-    today_str = now_dt.strftime("%-m/%-d")
-
 # --- 日付選択 ---
+now_dt = datetime.now()
+today_str = now_dt.strftime("%-m/%-d") if not st.runtime.scriptrunner.is_windows() else now_dt.strftime("%#m/%#d")
 available_dates = [col for col in df.columns if col not in ["日にち", "時間"]]
 default_idx = available_dates.index(today_str) if today_str in available_dates else 0
 selected_date = st.selectbox("📆 表示する日付を選んでください", available_dates, index=default_idx)
@@ -49,22 +40,22 @@ titles = df["日にち"]
 times = df["時間"]
 contents = df[selected_date]
 
-# --- クラススローガン表示 ---
+# --- クラススローガン ---
 st.markdown(
     "<div style='text-align:center; font-size:18px; font-weight:600;'>🎯 あとで振り返って<br>つらかったといえる夏にしよう</div>",
     unsafe_allow_html=True
 )
 
-# --- タイトル表示 ---
+# --- タイトル ---
 is_today = (selected_date == today_str)
 st.markdown(
     f"<div style='text-align:center; font-size:20px; font-weight:600;'>3R3ファミリー<br>📅 {selected_date}{'（本日）' if is_today else ''} の予定</div>",
     unsafe_allow_html=True
 )
 
-# --- 🛤️ 進行状況バー（時間別） ---
+# --- 進行状況バー ---
 st.subheader("🛤️ 進行状況バー（時間別）")
-now_time = now_dt.time()
+now = now_dt.time()
 
 for i in range(len(df)):
     title = titles[i].strip()
@@ -78,19 +69,29 @@ for i in range(len(df)):
     except:
         continue
 
-    if now_time > end:
+    if now > end:
+        style = "opacity: 0.5;"  # 完了：薄く表示
         symbol = "✔️"
-    elif start <= now_time <= end:
+    elif start <= now <= end:
+        style = "border: 2px solid green; padding: 5px; border-radius: 5px;"  # 現在：枠付き
         symbol = "➡️"
     else:
+        style = ""  # 未着手：そのまま
         symbol = "○"
 
-    st.markdown(f"{symbol} **{title}**<br><span style='margin-left:24px;'>{time_range}</span>", unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div style="{style} margin-bottom: 5px;">
+            {symbol} <strong>{title}</strong><br>
+            <span style='margin-left:24px;'>{time_range}</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-# --- 📢 連絡事項表示 ---
+# --- 連絡事項 ---
 st.markdown("---")
 st.subheader("📢 連絡事項")
-
 try:
     idx = df[df["日にち"] == "連絡事項"].index[0]
     ann = contents[idx].strip()
@@ -101,5 +102,5 @@ try:
 except IndexError:
     st.caption("（連絡事項の行が見つかりません）")
 
-# --- モバイル対応の余白 ---
+# モバイル対応の余白
 st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
