@@ -1,12 +1,10 @@
 """
-リアルタイム・スケジュールボード（現在セッション 80% ビッグパネル版）
-===============================================================
-* 10 : 40 スタート／1 分刻み
-* **現在のセッションパネルが画面の約 80 % を占領**
-    * `min-height: 70vh`（ビューポート高の 7 割）＋幅 90 %
-    * タイトル 72 px、残り時間 120 px に拡大
-* 次の予定カードは従来のまま
-* 縦持ち iPad でも中央揃え
+リアルタイム・スケジュールボード（次パネル横長・縦薄版）
+==============================================================
+* 現在セッションパネル：変化なし（70 vh × 90 %）
+* **次の予定パネル**
+    * 横幅を同じ 90 % に拡大
+    * 縦方向のパディングを 12 px に減らしスリム化
 """
 
 from __future__ import annotations
@@ -51,6 +49,7 @@ st.markdown(
     """
     <style>
         body, .stApp { background:#ffffff; color:#000000; }
+
         /* 現在時刻 */
         .current-time {
             font-size: 28px;
@@ -58,7 +57,8 @@ st.markdown(
             text-align:center;
             margin-bottom:12px;
         }
-        /* メインパネル（画面の70vh×90%） */
+
+        /* メインパネル */
         .now-panel {
             width: 90%;
             min-height: 70vh;
@@ -68,11 +68,12 @@ st.markdown(
             border: 4px solid #ff9800;
             text-align:center;
             box-shadow:0 4px 12px rgba(0,0,0,0.15);
-            margin-left:auto; margin-right:auto; margin-bottom:30px;
+            margin:auto auto 30px auto;
             display:flex; flex-direction:column; justify-content:center; align-items:center;
         }
         .session-title { font-size: 72px; font-weight: 900; margin-bottom:24px; }
         .time-remaining { font-size: 120px; font-weight: 900; margin-bottom:40px; }
+
         /* プログレスバー */
         .progress-outer {
             width: 90%;
@@ -82,26 +83,27 @@ st.markdown(
             overflow:hidden;
         }
         .progress-inner { height: 100%; background:#ff9800; width:0%; }
+
         /* 次の予定 */
         .next-panel {
-            border-radius: 16px;
-            padding: 20px;
+            width: 90%;
+            padding: 12px;
             background:#e3f2fd;
             border: 3px solid #2196f3;
+            border-radius: 16px;
             text-align:center;
             box-shadow:0 2px 8px rgba(0,0,0,0.1);
-            max-width: 500px;
-            margin-left:auto; margin-right:auto;
+            margin:auto;
         }
         .next-title { font-size: 32px; font-weight:700; }
-        .next-time  { font-size: 24px; margin-top:8px; }
+        .next-time  { font-size: 24px; margin-top:6px; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 # -----------------------------------------------------------------------------
-# ユーティリティ
+# ユーティリティ関数
 # -----------------------------------------------------------------------------
 
 def str_to_time(hm: str) -> time:
