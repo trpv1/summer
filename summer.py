@@ -1,12 +1,10 @@
 """
-リアルタイム・スケジュールボード（タイムリミット強調版）
-========================================================
-* 10 : 25 スタート／1 分刻み（デモ用）
-* **残り時間を極太・超特大フォントで中央表示**
-* セッション進行度を 100% スケールの **プログレスバー** で可視化
-* 現在時刻は上部中央に小さめに 1 行で表示
-* 本日のタイムテーブル一覧は非表示
-* 1 秒ごとに更新、非推奨 API 不使用で警告ゼロ
+リアルタイム・スケジュールボード（10:40〜／縦持ち iPad 最適化）
+============================================================
+* **10 : 40 スタート／1 分刻み・11 セッション**
+* 現在のセッションタイトルをさらに大きく（64 px）・極太（900）
+* 次の予定カードは変更なし
+* iPad 縦持ちでもプログレスバーが 90% 幅になるよう調整
 """
 
 from __future__ import annotations
@@ -28,20 +26,20 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# タイムテーブル（JST） 10:25 から 1 分刻み
+# タイムテーブル（JST） 10:40 から 1 分刻み
 # -----------------------------------------------------------------------------
 SCHEDULE: List[Tuple[str, str, str]] = [
-    ("10:35", "10:36", "授業前"),
-    ("10:36", "10:37", "テスト開始5分前カウントダウン"),
-    ("10:37", "10:38", "テスト開始"),
-    ("10:38", "10:39", "テスト終了5分前カウントダウン"),
-    ("10:39", "10:40", "テスト終了採点"),
-    ("10:40", "10:41", "とことん演習開始"),
-    ("10:41", "10:42", "とことん演習終了5分前カウントダウン"),
-    ("10:42", "10:43", "休憩時間"),
-    ("10:43", "10:44", "休憩終了5分前カウントダウン"),
-    ("10:44", "10:45", "授業開始"),
-    ("10:45", "10:46", "授業終了10分前カウントダウン"),
+    ("10:40", "10:41", "授業前"),
+    ("10:41", "10:42", "テスト開始5分前カウントダウン"),
+    ("10:42", "10:43", "テスト開始"),
+    ("10:43", "10:44", "テスト終了5分前カウントダウン"),
+    ("10:44", "10:45", "テスト終了採点"),
+    ("10:45", "10:46", "とことん演習開始"),
+    ("10:46", "10:47", "とことん演習終了5分前カウントダウン"),
+    ("10:47", "10:48", "休憩時間"),
+    ("10:48", "10:49", "休憩終了5分前カウントダウン"),
+    ("10:49", "10:50", "授業開始"),
+    ("10:50", "10:51", "授業終了10分前カウントダウン"),
 ]
 
 # -----------------------------------------------------------------------------
@@ -51,7 +49,6 @@ st.markdown(
     """
     <style>
         body, .stApp { background:#ffffff; color:#000000; }
-
         /* 現在時刻 */
         .current-time {
             font-size: 32px;
@@ -59,7 +56,6 @@ st.markdown(
             text-align:center;
             margin-bottom:14px;
         }
-
         /* メインパネル */
         .now-panel {
             border-radius: 24px;
@@ -69,13 +65,14 @@ st.markdown(
             text-align:center;
             margin-bottom:40px;
             box-shadow:0 4px 12px rgba(0,0,0,0.15);
+            max-width: 600px; /* 縦持ちで横幅が狭いときも中央寄せ */
+            margin-left:auto; margin-right:auto;
         }
-        .session-title { font-size: 48px; font-weight: 800; margin-bottom:20px; }
+        .session-title { font-size: 64px; font-weight: 900; margin-bottom:20px; }
         .time-remaining { font-size: 88px; font-weight: 900; margin-bottom:30px; }
-
         /* プログレスバー */
         .progress-outer {
-            width: 80%;
+            width: 90%;
             height: 30px;
             background:#eeeeee;
             border-radius: 15px;
@@ -85,9 +82,8 @@ st.markdown(
         .progress-inner {
             height: 100%;
             background:#ff9800;
-            width:0%; /* JS で挿入 */
+            width:0%;
         }
-
         /* 次の予定 */
         .next-panel {
             border-radius: 16px;
@@ -96,6 +92,8 @@ st.markdown(
             border: 3px solid #2196f3;
             text-align:center;
             box-shadow:0 2px 8px rgba(0,0,0,0.1);
+            max-width: 500px;
+            margin-left:auto; margin-right:auto;
         }
         .next-title { font-size: 32px; font-weight:700; }
         .next-time  { font-size: 24px; margin-top:8px; }
@@ -125,32 +123,31 @@ def get_current_and_next(now_dt: datetime):
 # -----------------------------------------------------------------------------
 # プレースホルダ
 # -----------------------------------------------------------------------------
-ph_time   = st.empty()  # 現在時刻
-ph_now    = st.empty()  # 現在セッション
-ph_next   = st.empty()  # 次セッション
+ph_time   = st.empty()
+ph_now    = st.empty()
+ph_next   = st.empty()
 
 # -----------------------------------------------------------------------------
-# ループ
+# 更新ループ
 # -----------------------------------------------------------------------------
 while True:
     JST = datetime.utcnow() + timedelta(hours=9)
     now_event, next_event = get_current_and_next(JST)
 
-    # ----- 現在時刻 (控えめ) -----
+    # 現在時刻
     ph_time.markdown(
         f"<div class='current-time'>{JST.strftime('%H:%M:%S')}</div>",
         unsafe_allow_html=True,
     )
 
-    # ----- 現在セッション -----
+    # 現在セッション
     if now_event:
         start_s, end_s, title = now_event
         start_dt = datetime.combine(JST.date(), str_to_time(start_s))
         end_dt   = datetime.combine(JST.date(), str_to_time(end_s))
         total_sec = (end_dt - start_dt).total_seconds()
         elapsed_sec = (JST - start_dt).total_seconds()
-        remaining_td = end_dt - JST
-        remaining_str = str(remaining_td).split(".")[0]
+        remaining_str = str(end_dt - JST).split(".")[0]
         progress_pct = max(0, min(100, int(elapsed_sec / total_sec * 100)))
 
         ph_now.markdown(
@@ -171,7 +168,7 @@ while True:
             unsafe_allow_html=True,
         )
 
-    # ----- 次の予定 -----
+    # 次の予定
     if next_event:
         n_start, n_end, n_title = next_event
         start_dt = datetime.combine(JST.date(), str_to_time(n_start))
@@ -191,7 +188,7 @@ while True:
     # 1 秒待機
     _time.sleep(1)
 
-    # 可能ならページ再実行（最新版のみ）
+    # 最新版なら rerun でリロード
     try:
         st.experimental_rerun()
     except AttributeError:
