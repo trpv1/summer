@@ -1,21 +1,11 @@
 """
 大きなスケジュールボード (iPad向け・単独実行版)
 ================================================
-画像で受け取ったサンプルタイムテーブルをハードコードし、
-リアルタイムに「いま何をしているか／次は何か」を大きな文字で表示します。
+Streamlit v1.33 以降で安全に動作するよう、API 廃止箇所を修正しました。
 
-特徴
-------
-* **Google Sheets 不要** – 予定はコード内にベタ書き。
-* **自動リフレッシュ** – 1 秒ごとにページを更新し、常に最新情報を表示。
-* **遠くからでも視認** – iPad 横持ちを想定し、フォントサイズと配色を強調。
-* **現在のセッションをハイライト** – 進行中の枠を赤く、終了済みはグレーアウト。
-
-実行方法
---------
-```bash
-streamlit run big_schedule_board.py
-```
+* `st.experimental_set_query_params` → **削除**（今回不要）
+* `st.experimental_rerun` → **削除**
+* 自動更新は `st.experimental_refresh(interval=1000, key="autorefresh")` の一行のみで実装
 
 """
 
@@ -36,11 +26,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 自動リフレッシュ（1 秒間隔）
-st.experimental_set_query_params(refresh=datetime.utcnow().timestamp())
-st_autorefresh = st.experimental_rerun  # 型アシスト用の alias
-st_autorefresh = st.experimental_refresh  # For forward‑compat (Streamlit ≥ 1.33)
-st_autorefresh(interval=1000, key="autorefresh")
+# 1 秒ごとに自動リフレッシュ
+st.experimental_refresh(interval=1000, key="autorefresh")
 
 # -----------------------------------------------------------------------------
 # タイムテーブル（JST）
@@ -107,10 +94,8 @@ st.markdown(
 # -----------------------------------------------------------------------------
 JST = datetime.utcnow() + timedelta(hours=9)
 
-
 def str_to_time(hm: str) -> time:
     return datetime.strptime(hm, "%H:%M").time()
-
 
 # 現在のセッションと次のセッションを決定
 now_event = None
