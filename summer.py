@@ -1,22 +1,21 @@
 """
-大きなスケジュールボード (デモ用 1 分刻み)
+リアルタイム・スケジュールボード (1 秒更新)
 ========================================
-Streamlit v1.33 互換：自動リロードは `time.sleep(1)` → `st.experimental_rerun()` に変更。
-
-* **開始時刻 10:25**、以降 1 分刻みで 11 セッションを設定し動作確認が容易
-* Google Sheets 依存なし
-* iPad 横持ちで遠くから読める高コントラスト UI
+* **10 : 25 スタート、1 分刻みの 11 セッション**
+* 本日のタイムテーブル一覧は非表示
+* 1 秒ごとに現在時刻・残り時間・次の予定を自動更新
+* **Streamlit どのバージョンでも動く** ように、
+  * `st.experimental_rerun()` が無い場合は `st.experimental_set_query_params()` で強制リロード
 
 起動：
 ```bash
 streamlit run big_schedule_board.py
 ```
-
-停止したい場合は Streamlit サーバを `Ctrl + C` で終了してください。
 """
 
 from __future__ import annotations
 
+import random
 import time as _time
 from datetime import datetime, time, timedelta
 from typing import List, Tuple
@@ -82,12 +81,6 @@ st.markdown(
         }
         .next-title { font-size: 36px; font-weight:700; }
         .next-time  { font-size: 28px; margin-top:8px; }
-
-        /* 過去・未来のリスト */
-        .schedule-table { width:100%; border-collapse:collapse; margin-top:40px; }
-        .schedule-table td { padding:12px 8px; font-size:24px; }
-        .schedule-past  { color:#9e9e9e; text-decoration:line-through; }
-        .schedule-now   { background:#fff3e0; font-weight:700; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -96,101 +89,93 @@ st.markdown(
 # -----------------------------------------------------------------------------
 # ユーティリティ
 # -----------------------------------------------------------------------------
-JST = datetime.utcnow() + timedelta(hours=9)
-
 
 def str_to_time(hm: str) -> time:
     return datetime.strptime(hm, "%H:%M").time()
 
 
-# 現在のセッションと次のセッションを決定
-now_event = None
-next_event = None
-for start, end, label in SCHEDULE:
-    start_t, end_t = str_to_time(start), str_to_time(end)
-    if start_t <= JST.time() <= end_t:
-        now_event = (start, end, label)
-    elif JST.time() < start_t and next_event is None:
-        next_event = (start, end, label)
+def get_current_and_next(jst_now) -> tuple | tuple[None, None]:
+    now_ev = None
+    next_ev = None
+    for start, end, label in SCHEDULE:
+        start_t, end_t = str_to_time(start), str_to_time(end)
+        if start_t <= jst_now.time() <= end_t:
+            now_ev = (start, end, label)
+        elif jst_now.time() < start_t and next_ev is None:
+            next_ev = (start, end, label)
+    return now_ev, next_ev
 
 # -----------------------------------------------------------------------------
-# 中央メイン表示
+# メイン表示用プレースホルダ
 # -----------------------------------------------------------------------------
-if now_event:
-    start, end, title = now_event
-    end_dt = datetime.combine(JST.date(), str_to_time(end))
-    remaining = end_dt - JST
-    remaining_str = str(remaining).split(".")[0]  # hh:mm:ss
-    st.markdown(
-        f"""
-        <div class="now-block">
-            <div class="now-time">{JST.strftime('%H:%M:%S')}</div>
-            <div class="now-title">{title}</div>
-            <div class="now-span">終了まで {remaining_str}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-else:
-    st.markdown(
-        f"""
-        <div class="now-block" style="background:#e0f2f1; border-color:#00897b;">
-            <div class="now-time">{JST.strftime('%H:%M:%S')}</div>
-            <div class="now-title">スケジュール外</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+placeholder_now  = st.empty()
+placeholder_next = st.empty()
 
 # -----------------------------------------------------------------------------
-# 次の予定
+# ループ：1 秒ごとに更新
 # -----------------------------------------------------------------------------
-if next_event:
-    n_start, n_end, n_title = next_event
-    start_dt = datetime.combine(JST.date(), str_to_time(n_start))
-    until_next = start_dt - JST
-    until_next_str = str(until_next).split(".")[0]
+while True:
+    JST = datetime.utcnow() + timedelta(hours=9)
+    now_event, next_event = get_current_and_next(JST)
 
-    st.markdown(
-        f"""
-        <div class="next-block">
-            <div class="next-title">次: {n_title}</div>
-            <div class="next-time">{n_start} – {n_end} (開始まで {until_next_str})</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    # --- 現在セッション ---
+    if now_event:
+        start, end, title = now_event
+        end_dt = datetime.combine(JST.date(), str_to_time(end))
+        remaining = end_dt - JST
+        remaining_str = str(remaining).split(".")[0]
+        placeholder_now.markdown(
+            f"""
+            <div class="now-block">
+                <div class="now-time">{JST.strftime('%H:%M:%S')}</div>
+                <div class="now-title">{title}</div>
+                <div class="now-span">終了まで {remaining_str}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        placeholder_now.markdown(
+            f"""
+            <div class="now-block" style="background:#e0f2f1; border-color:#00897b;">
+                <div class="now-time">{JST.strftime('%H:%M:%S')}</div>
+                <div class="now-title">スケジュール外</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-# -----------------------------------------------------------------------------
-# 全スケジュール一覧
-# -----------------------------------------------------------------------------
-st.markdown("### 📋 本日のタイムテーブル (1 分刻みデモ)")
+    # --- 次の予定 ---
+    if next_event:
+        n_start, n_end, n_title = next_event
+        start_dt = datetime.combine(JST.date(), str_to_time(n_start))
+        until_next = start_dt - JST
+        until_next_str = str(until_next).split(".")[0]
 
-rows = []
-for start, end, label in SCHEDULE:
-    start_t, end_t = str_to_time(start), str_to_time(end)
-    cls = ""
-    if JST.time() > end_t:
-        cls = "schedule-past"
-    elif start_t <= JST.time() <= end_t:
-        cls = "schedule-now"
+        placeholder_next.markdown(
+            f"""
+            <div class="next-block">
+                <div class="next-title">次: {n_title}</div>
+                <div class="next-time">{n_start} – {n_end} (開始まで {until_next_str})</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        placeholder_next.empty()
 
-    rows.append(f"<tr class='{cls}'><td>{start} – {end}</td><td>{label}</td></tr>")
+    # 1 秒待機
+    _time.sleep(1)
 
-st.markdown(
-    f"""
-    <table class="schedule-table">
-        {''.join(rows)}
-    </table>
-    """,
-    unsafe_allow_html=True,
-)
-
-# 末尾余白
-st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# 自動リロード：1 秒待って再実行
-# -----------------------------------------------------------------------------
-_time.sleep(1)
-st.experimental_rerun()
+    # ----------------------------------------------------------
+    # 強制リロード（環境に合わせて二段構え）
+    # ----------------------------------------------------------
+    try:
+        st.experimental_rerun()
+    except AttributeError:
+        # fallback: 乱数クエリパラメータで URL を書き換え → rerun
+        try:
+            st.experimental_set_query_params(_=random.random())
+        except AttributeError:
+            # それでも無理ならループ継続（画面上のプレースホルダは更新され続ける）
+            pass
