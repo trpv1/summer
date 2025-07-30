@@ -1,10 +1,12 @@
 """
-リアルタイム・スケジュールボード（次パネル横長・縦薄版）
-==============================================================
-* 現在セッションパネル：変化なし（70 vh × 90 %）
-* **次の予定パネル**
-    * 横幅を同じ 90 % に拡大
-    * 縦方向のパディングを 12 px に減らしスリム化
+リアルタイム・スケジュールボード（余白5%縮小＋スローガン）
+===============================================================
+* 現在セッションパネルの **縦幅を 5 % 短縮**：`min-height: 66vh` + padding 32 px
+* 画面最上部中央にスローガン追加
+```
+つらかったと思える夏に！3R3ファミリー
+```
+* 他のレイアウト・機能はそのまま
 """
 
 from __future__ import annotations
@@ -50,29 +52,37 @@ st.markdown(
     <style>
         body, .stApp { background:#ffffff; color:#000000; }
 
+        /* スローガン */
+        .slogan {
+            font-size: 36px;
+            font-weight: 700;
+            text-align:center;
+            margin-top:6px; margin-bottom:6px;
+        }
+
         /* 現在時刻 */
         .current-time {
             font-size: 28px;
             font-weight: 600;
             text-align:center;
-            margin-bottom:12px;
+            margin-bottom:10px;
         }
 
-        /* メインパネル */
+        /* メインパネル (縦幅 66vh) */
         .now-panel {
             width: 90%;
-            min-height: 70vh;
+            min-height: 66vh;  /* ← 5% 縮小 */
             border-radius: 24px;
-            padding: 40px 20px;
+            padding: 32px 20px; /* padding も少し減らす */
             background:#fff3e0;
             border: 4px solid #ff9800;
             text-align:center;
             box-shadow:0 4px 12px rgba(0,0,0,0.15);
-            margin:auto auto 30px auto;
+            margin:auto auto 24px auto;
             display:flex; flex-direction:column; justify-content:center; align-items:center;
         }
-        .session-title { font-size: 72px; font-weight: 900; margin-bottom:24px; }
-        .time-remaining { font-size: 120px; font-weight: 900; margin-bottom:40px; }
+        .session-title { font-size: 72px; font-weight: 900; margin-bottom:20px; }
+        .time-remaining { font-size: 120px; font-weight: 900; margin-bottom:32px; }
 
         /* プログレスバー */
         .progress-outer {
@@ -84,7 +94,7 @@ st.markdown(
         }
         .progress-inner { height: 100%; background:#ff9800; width:0%; }
 
-        /* 次の予定 */
+        /* 次の予定 (横幅そろえ / 縦薄) */
         .next-panel {
             width: 90%;
             padding: 12px;
@@ -103,7 +113,7 @@ st.markdown(
 )
 
 # -----------------------------------------------------------------------------
-# ユーティリティ関数
+# ユーティリティ
 # -----------------------------------------------------------------------------
 
 def str_to_time(hm: str) -> time:
@@ -121,8 +131,11 @@ def get_current_and_next(now_dt: datetime):
     return now_ev, next_ev
 
 # -----------------------------------------------------------------------------
-# プレースホルダ
+# 静的ヘッダ
 # -----------------------------------------------------------------------------
+st.markdown("<div class='slogan'>つらかったと思える夏に！3R3ファミリー</div>", unsafe_allow_html=True)
+
+# プレースホルダ
 ph_time   = st.empty()
 ph_now    = st.empty()
 ph_next   = st.empty()
