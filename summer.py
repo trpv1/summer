@@ -1,180 +1,199 @@
-from datetime import datetime, timedelta
-import os
+"""
+大きなスケジュールボード (iPad向け・単独実行版)
+================================================
+画像で受け取ったサンプルタイムテーブルをハードコードし、
+リアルタイムに「いま何をしているか／次は何か」を大きな文字で表示します。
+
+特徴
+------
+* **Google Sheets 不要** – 予定はコード内にベタ書き。
+* **自動リフレッシュ** – 1 秒ごとにページを更新し、常に最新情報を表示。
+* **遠くからでも視認** – iPad 横持ちを想定し、フォントサイズと配色を強調。
+* **現在のセッションをハイライト** – 進行中の枠を赤く、終了済みはグレーアウト。
+
+実行方法
+--------
+```bash
+streamlit run big_schedule_board.py
+```
+
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, time, timedelta
+from typing import List, Tuple
+
 import streamlit as st
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import pandas as pd
 
-# --- Google認証スコープ ---
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+# -----------------------------------------------------------------------------
+# ページ設定
+# -----------------------------------------------------------------------------
+st.set_page_config(
+    page_title="3R3 スケジュールボード",
+    page_icon="🕒",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
-# --- Google Sheets認証処理 ---
-if "gcp_service_account" in st.secrets:
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(
-        st.secrets["gcp_service_account"], scope
+# 自動リフレッシュ（1 秒間隔）
+st.experimental_set_query_params(refresh=datetime.utcnow().timestamp())
+st_autorefresh = st.experimental_rerun  # 型アシスト用の alias
+st_autorefresh = st.experimental_refresh  # For forward‑compat (Streamlit ≥ 1.33)
+st_autorefresh(interval=1000, key="autorefresh")
+
+# -----------------------------------------------------------------------------
+# タイムテーブル（JST）
+# -----------------------------------------------------------------------------
+SCHEDULE: List[Tuple[str, str, str]] = [
+    ("13:00", "13:25", "授業前"),
+    ("13:25", "13:30", "テスト開始5分前カウントダウン"),
+    ("13:30", "13:45", "テスト開始"),
+    ("13:45", "13:50", "テスト終了5分前カウントダウン"),
+    ("13:50", "13:55", "テスト終了採点"),
+    ("13:55", "15:10", "とことん演習開始"),
+    ("15:10", "15:20", "とことん演習終了5分前カウントダウン"),
+    ("15:20", "15:45", "休憩時間"),
+    ("15:45", "15:50", "休憩終了5分前カウントダウン"),
+    ("15:50", "17:30", "授業開始"),
+    ("17:30", "17:40", "授業終了10分前カウントダウン"),
+]
+
+# -----------------------------------------------------------------------------
+# スタイル (CSS)
+# -----------------------------------------------------------------------------
+st.markdown(
+    """
+    <style>
+        body, .stApp { background:#ffffff !important; color:#000000 !important; }
+        /* 中央のメイン表示 */
+        .now-block {
+            border-radius: 24px;
+            padding: 40px 20px;
+            background:#ffebee;
+            border: 4px solid #e53935;
+            text-align:center;
+            margin-bottom:40px;
+            box-shadow:0 4px 12px rgba(0,0,0,0.15);
+        }
+        .now-time { font-size: 64px; font-weight: 800; }
+        .now-title { font-size: 56px; font-weight: 800; margin-top:20px; }
+        .now-span { font-size: 32px; margin-top:12px; }
+
+        /* 次の予定 */
+        .next-block {
+            border-radius: 16px;
+            padding: 20px;
+            background:#e3f2fd;
+            border: 3px solid #1e88e5;
+            text-align:center;
+            box-shadow:0 2px 8px rgba(0,0,0,0.1);
+        }
+        .next-title { font-size: 36px; font-weight:700; }
+        .next-time  { font-size: 28px; margin-top:8px; }
+
+        /* 過去・未来のリスト */
+        .schedule-table { width:100%; border-collapse:collapse; margin-top:40px; }
+        .schedule-table td { padding:12px 8px; font-size:24px; }
+        .schedule-past  { color:#9e9e9e; text-decoration:line-through; }
+        .schedule-now   { background:#fff3e0; font-weight:700; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# -----------------------------------------------------------------------------
+# ユーティリティ
+# -----------------------------------------------------------------------------
+JST = datetime.utcnow() + timedelta(hours=9)
+
+
+def str_to_time(hm: str) -> time:
+    return datetime.strptime(hm, "%H:%M").time()
+
+
+# 現在のセッションと次のセッションを決定
+now_event = None
+next_event = None
+for start, end, label in SCHEDULE:
+    start_t, end_t = str_to_time(start), str_to_time(end)
+    if start_t <= JST.time() <= end_t:
+        now_event = (start, end, label)
+    elif JST.time() < start_t and next_event is None:
+        next_event = (start, end, label)
+
+# -----------------------------------------------------------------------------
+# 中央メイン表示
+# -----------------------------------------------------------------------------
+if now_event:
+    start, end, title = now_event
+    end_dt = datetime.combine(JST.date(), str_to_time(end))
+    remaining = end_dt - JST
+    remaining_str = str(remaining).split(".")[0]  # hh:mm:ss
+    st.markdown(
+        f"""
+        <div class="now-block">
+            <div class="now-time">{JST.strftime('%H:%M:%S')}</div>
+            <div class="now-title">{title}</div>
+            <div class="now-span">終了まで {remaining_str}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 else:
-    st.error("認証情報がありません。Streamlit Secrets に gcp_service_account を設定してください。")
-    st.stop()
+    st.markdown(
+        f"""
+        <div class="now-block" style="background:#e0f2f1; border-color:#00897b;">
+            <div class="now-time">{JST.strftime('%H:%M:%S')}</div>
+            <div class="now-title">スケジュール外</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-client = gspread.authorize(creds)
-
-# --- スプレッドシート読み込み（キャッシュ：5分） ---
-@st.cache_data(ttl=300)
-def load_sheet_data():
-    sheet = client.open("ScoreBoard").worksheet("予定表")
-    return sheet.get_all_values()
-
-data = load_sheet_data()
-df = pd.DataFrame(data)
-df.columns = df.iloc[0]
-df = df[1:].reset_index(drop=True)
-
-# --- JST現在時刻 ---
-now_dt = datetime.utcnow() + timedelta(hours=9)  # JST
-if os.name == 'nt':   # Windows
-    today_str = now_dt.strftime("%#m/%#d")
-else:                 # macOS / Linux
-    today_str = now_dt.strftime("%-m/%-d")
-
-# --- 日付選択 ---
-available_dates = [c for c in df.columns if c not in ["日にち", "時間"]]
-default_idx = available_dates.index(today_str) if today_str in available_dates else 0
-selected_date = st.selectbox("📆 表示する日付を選んでください", available_dates, index=default_idx)
-
-titles   = df["日にち"]
-times    = df["時間"]
-contents = df[selected_date]
-
-# --- 背景白＆文字黒 固定 ---
-st.markdown("""
-<style>
-    body, .stApp {
-        background-color: white !important;
-        color: black !important;
-    }
-
-    /* ▼ selectbox 本体（表示エリア） */
-    .stSelectbox > div[data-baseweb="select"] {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-    }
-    /* ▼ プレースホルダー / 入力文字 */
-    .stSelectbox input {
-        color: #000000 !important;
-    }
-    /* ▼ ドロップダウンのリスト全体 */
-    .stSelectbox div[role="listbox"] {
-        background-color: #ffffff !important;
-    }
-    /* ▼ 各オプションの文字色 */
-    .stSelectbox div[role="option"] {
-        color: #000000 !important;
-    }
-    /* ▼ 矢印アイコンも黒に */
-    .stSelectbox svg {
-        fill: #000000 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --- クラススローガン ---
-st.markdown(
-    "<div style='text-align:center; font-size:18px; font-weight:600;'>🎯 あとで振り返って<br>つらかったといえる夏にしよう</div>",
-    unsafe_allow_html=True
-)
-
-# --- 見出し ---
-is_today = (selected_date == today_str)
-st.markdown(
-    f"<div style='text-align:center; font-size:20px; font-weight:600;'>3R3ファミリー<br>📅 {selected_date}{'（本日）' if is_today else ''} の予定</div>",
-    unsafe_allow_html=True
-)
-
-# ---------- 日付比較用ユーティリティ ----------
-def md_to_date(md_str: str, base_year: int) -> datetime:
-    """'7/23' 形式を同年の datetime に変換（失敗時は今日を返す）"""
-    try:
-        m, d = md_str.split('/')
-        return datetime(base_year, int(m), int(d))
-    except Exception:
-        return datetime(base_year, now_dt.month, now_dt.day)
-
-sel_date_dt  = md_to_date(selected_date, now_dt.year)
-today_date_dt = md_to_date(today_str,    now_dt.year)
-
-# ---------- 進行状況バー ----------
-st.subheader("🛤️ 進行状況バー（目安）")
-now_time = now_dt.time()
-
-for i in range(len(df)):
-    title      = titles[i].strip()
-    time_range = times[i].strip()
-    content    = contents[i].strip()
-
-    if not time_range:
-        continue
-
-    # 時刻パース
-    try:
-        start_str, end_str = time_range.replace('〜', '-').split('-')
-        start_t = datetime.strptime(start_str.strip(), "%H:%M").time()
-        end_t   = datetime.strptime(end_str.strip(),   "%H:%M").time()
-    except:
-        continue
-
-    # --- デフォルト値 ---
-    opacity = "1.0"
-    symbol  = "○"
-    border  = ""
-    bg      = "transparent"
-
-    # 過去/今日/未来 で分岐
-    if sel_date_dt < today_date_dt:
-        # 過去の日付：すべて薄く＆✔️
-        opacity = "0.4"
-        symbol  = "✔️"
-    elif sel_date_dt == today_date_dt:
-        # 今日：時間帯で判定
-        if now_time > end_t:
-            opacity = "0.4"
-            symbol  = "✔️"
-        elif start_t <= now_time <= end_t:
-            opacity = "1.0"
-            symbol  = "➡️"
-            border  = "border: 2px solid orange;"
-            bg      = "#FFD6D6"  # 薄いピンク
-        else:
-            opacity = "1.0"
-            symbol  = "○"
-    else:
-        # 未来：常に黒表示のまま（未経過）
-        opacity = "1.0"
-        symbol  = "○"
+# -----------------------------------------------------------------------------
+# 次の予定
+# -----------------------------------------------------------------------------
+if next_event:
+    n_start, n_end, n_title = next_event
+    start_dt = datetime.combine(JST.date(), str_to_time(n_start))
+    until_next = start_dt - JST
+    until_next_str = str(until_next).split(".")[0]
 
     st.markdown(
         f"""
-        <div style="margin-bottom: 10px; padding: 6px; {border}; background-color: {bg}; opacity: {opacity};">
-            <span style="font-size: 18px; font-weight: bold;">{symbol} <strong>{title}</strong></span><br>
-            <span style="margin-left: 24px;">{time_range}</span><br>
-            <div style="margin-left: 24px;">{content}</div>
+        <div class="next-block">
+            <div class="next-title">次: {n_title}</div>
+            <div class="next-time">{n_start} – {n_end} (開始まで {until_next_str})</div>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
-# --- 連絡事項 ---
-st.markdown("---")
-st.subheader("📢 連絡事項")
-try:
-    idx = df[df["日にち"] == "連絡事項"].index[0]
-    ann = contents[idx].strip()
-    if ann:
-        st.markdown(f"<div>{ann}</div>", unsafe_allow_html=True)
-    else:
-        st.caption("（本日の連絡事項はありません）")
-except IndexError:
-    st.caption("（連絡事項の行が見つかりません）")
+# -----------------------------------------------------------------------------
+# 全スケジュール一覧
+# -----------------------------------------------------------------------------
+st.markdown("### 📋 本日のタイムテーブル")
 
-# --- モバイル余白 ---
+rows = []
+for start, end, label in SCHEDULE:
+    start_t, end_t = str_to_time(start), str_to_time(end)
+    cls = ""
+    if JST.time() > end_t:
+        cls = "schedule-past"
+    elif start_t <= JST.time() <= end_t:
+        cls = "schedule-now"
+
+    rows.append(f"<tr class='{cls}'><td>{start} – {end}</td><td>{label}</td></tr>")
+
+st.markdown(
+    f"""
+    <table class="schedule-table">
+        {''.join(rows)}
+    </table>
+    """,
+    unsafe_allow_html=True,
+)
+
+# 末尾余白
 st.markdown("<div style='margin-bottom:60px;'></div>", unsafe_allow_html=True)
