@@ -1,10 +1,12 @@
 """
-リアルタイム・スケジュールボード（10:40〜／縦持ち iPad 最適化）
-============================================================
-* **10 : 40 スタート／1 分刻み・11 セッション**
-* 現在のセッションタイトルをさらに大きく（64 px）・極太（900）
-* 次の予定カードは変更なし
-* iPad 縦持ちでもプログレスバーが 90% 幅になるよう調整
+リアルタイム・スケジュールボード（現在セッション 80% ビッグパネル版）
+===============================================================
+* 10 : 40 スタート／1 分刻み
+* **現在のセッションパネルが画面の約 80 % を占領**
+    * `min-height: 70vh`（ビューポート高の 7 割）＋幅 90 %
+    * タイトル 72 px、残り時間 120 px に拡大
+* 次の予定カードは従来のまま
+* 縦持ち iPad でも中央揃え
 """
 
 from __future__ import annotations
@@ -51,39 +53,35 @@ st.markdown(
         body, .stApp { background:#ffffff; color:#000000; }
         /* 現在時刻 */
         .current-time {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: 600;
             text-align:center;
-            margin-bottom:14px;
+            margin-bottom:12px;
         }
-        /* メインパネル */
+        /* メインパネル（画面の70vh×90%） */
         .now-panel {
+            width: 90%;
+            min-height: 70vh;
             border-radius: 24px;
-            padding: 30px 20px;
+            padding: 40px 20px;
             background:#fff3e0;
             border: 4px solid #ff9800;
             text-align:center;
-            margin-bottom:40px;
             box-shadow:0 4px 12px rgba(0,0,0,0.15);
-            max-width: 600px; /* 縦持ちで横幅が狭いときも中央寄せ */
-            margin-left:auto; margin-right:auto;
+            margin-left:auto; margin-right:auto; margin-bottom:30px;
+            display:flex; flex-direction:column; justify-content:center; align-items:center;
         }
-        .session-title { font-size: 64px; font-weight: 900; margin-bottom:20px; }
-        .time-remaining { font-size: 88px; font-weight: 900; margin-bottom:30px; }
+        .session-title { font-size: 72px; font-weight: 900; margin-bottom:24px; }
+        .time-remaining { font-size: 120px; font-weight: 900; margin-bottom:40px; }
         /* プログレスバー */
         .progress-outer {
             width: 90%;
-            height: 30px;
+            height: 40px;
             background:#eeeeee;
-            border-radius: 15px;
-            margin: 0 auto 10px auto;
+            border-radius: 20px;
             overflow:hidden;
         }
-        .progress-inner {
-            height: 100%;
-            background:#ff9800;
-            width:0%;
-        }
+        .progress-inner { height: 100%; background:#ff9800; width:0%; }
         /* 次の予定 */
         .next-panel {
             border-radius: 16px;
@@ -188,7 +186,7 @@ while True:
     # 1 秒待機
     _time.sleep(1)
 
-    # 最新版なら rerun でリロード
+    # 可能ならページ再実行
     try:
         st.experimental_rerun()
     except AttributeError:
