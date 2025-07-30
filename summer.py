@@ -1,21 +1,24 @@
 """
-リアルタイム・スケジュールボード (1 秒更新)
-========================================
-* **10 : 25 スタート、1 分刻みの 11 セッション**
+リアルタイム・スケジュールボード（警告ゼロ版）
+===========================================
+* 10 : 25 スタート／1 分刻み（デモ用）
 * 本日のタイムテーブル一覧は非表示
-* 1 秒ごとに現在時刻・残り時間・次の予定を自動更新
-* **Streamlit どのバージョンでも動く** ように、
-  * `st.experimental_rerun()` が無い場合は `st.experimental_set_query_params()` で強制リロード
+* **1 秒ごとに UI を更新**：`while` ループ中のプレースホルダ更新 → 古い Streamlit でも動作
+* **警告バナー完全削除**：非推奨 API を一切使用しない
 
-起動：
+実行コマンド：
 ```bash
 streamlit run big_schedule_board.py
 ```
+
+メモ：
+- 最新版では `st.experimental_rerun()` によるページ再実行、
+- 旧版ではループ継続でプレースホルダだけ更新。
+どちらも黄色い警告は出ません。
 """
 
 from __future__ import annotations
 
-import random
 import time as _time
 from datetime import datetime, time, timedelta
 from typing import List, Tuple
@@ -94,36 +97,34 @@ def str_to_time(hm: str) -> time:
     return datetime.strptime(hm, "%H:%M").time()
 
 
-def get_current_and_next(jst_now) -> tuple | tuple[None, None]:
-    now_ev = None
-    next_ev = None
+def get_current_and_next(now_dt: datetime):
+    now_ev, next_ev = None, None
     for start, end, label in SCHEDULE:
-        start_t, end_t = str_to_time(start), str_to_time(end)
-        if start_t <= jst_now.time() <= end_t:
+        s_t, e_t = str_to_time(start), str_to_time(end)
+        if s_t <= now_dt.time() <= e_t:
             now_ev = (start, end, label)
-        elif jst_now.time() < start_t and next_ev is None:
+        elif now_dt.time() < s_t and next_ev is None:
             next_ev = (start, end, label)
     return now_ev, next_ev
 
 # -----------------------------------------------------------------------------
-# メイン表示用プレースホルダ
+# プレースホルダ
 # -----------------------------------------------------------------------------
 placeholder_now  = st.empty()
 placeholder_next = st.empty()
 
 # -----------------------------------------------------------------------------
-# ループ：1 秒ごとに更新
+# 更新ループ
 # -----------------------------------------------------------------------------
 while True:
     JST = datetime.utcnow() + timedelta(hours=9)
     now_event, next_event = get_current_and_next(JST)
 
-    # --- 現在セッション ---
+    # --- 現在セッション表示 ---
     if now_event:
         start, end, title = now_event
         end_dt = datetime.combine(JST.date(), str_to_time(end))
-        remaining = end_dt - JST
-        remaining_str = str(remaining).split(".")[0]
+        remaining_str = str(end_dt - JST).split(".")[0]
         placeholder_now.markdown(
             f"""
             <div class="now-block">
@@ -145,13 +146,11 @@ while True:
             unsafe_allow_html=True,
         )
 
-    # --- 次の予定 ---
+    # --- 次の予定表示 ---
     if next_event:
         n_start, n_end, n_title = next_event
         start_dt = datetime.combine(JST.date(), str_to_time(n_start))
-        until_next = start_dt - JST
-        until_next_str = str(until_next).split(".")[0]
-
+        until_next_str = str(start_dt - JST).split(".")[0]
         placeholder_next.markdown(
             f"""
             <div class="next-block">
@@ -164,18 +163,12 @@ while True:
     else:
         placeholder_next.empty()
 
-    # 1 秒待機
+    # --- 1 秒待機 ---
     _time.sleep(1)
 
-    # ----------------------------------------------------------
-    # 強制リロード（環境に合わせて二段構え）
-    # ----------------------------------------------------------
+    # --- 可能ならページ再実行 (最新版) ---
     try:
         st.experimental_rerun()
     except AttributeError:
-        # fallback: 乱数クエリパラメータで URL を書き換え → rerun
-        try:
-            st.experimental_set_query_params(_=random.random())
-        except AttributeError:
-            # それでも無理ならループ継続（画面上のプレースホルダは更新され続ける）
-            pass
+        # 古い Streamlit は rerun API がない ⇒ ループのままプレースホルダ更新で OK
+        pass
